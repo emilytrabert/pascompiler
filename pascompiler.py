@@ -191,9 +191,11 @@ end	start"""
 def main():
     pasfile = raw_input("File? ")
     postlex = lex(pasfile)
-    print postlex
-    print symboltable
+    print "Postlex:", postlex
+    print "Symboltable:", symboltable
+    print ""
     #syntax(postlex)
-    print(bettersyntax(postlex))
+    print "x86:"
+    print bettersyntax(postlex)
 
 main()
