@@ -29,7 +29,6 @@ compsymbols = {'<>': '!', ':=': '|'}
 
 symboltable = {}
 
-
 def openfile(pasfile):
     psfl = open(pasfile, 'r')
     linelist = supersplit(psfl.read().split())
@@ -119,30 +118,73 @@ def syntaxError(expected, got):
     print "Expected:", expected
     print "Encountered:", got
 
+def assignVariables(pointer, postlexarray, asm):
+    error = False
+    registerCount = 16
+    moreVars = True
+
+    while moreVars:
+        if getIdentifier(pointer, postlexarray) == -1:
+            error = True
+            return pointer, asm, error
+        else:
+            asm += ".def "
+            asm += getIdentifier(pointer, postlexarray)
+            asm += " = R"
+            asm += str(registerCount)
+            registerCount += 1
+            asm += """
+"""
+            #print asm
+            pointer = moveToNext(pointer)
+
+        if getSymbol(pointer, postlexarray) == ",":
+            pointer = moveToNext(pointer)
+        elif getSymbol(pointer, postlexarray) == ":":
+            pointer = moveToNext(pointer)
+            if not (getReservedWord(pointer, postlexarray) == "INTEGER" or getReservedWord(pointer, postlexarray) == "BOOLEAN"):
+                #print getReservedWord(pointer, postlexarray)
+                error = True
+                return pointer, asm, error
+            pointer = moveToNext(pointer)
+            pointer = moveToNext(pointer)
+            #print "r", getReservedWord(pointer, postlexarray), pointer
+
+            if getReservedWord(pointer, postlexarray) == "BEGIN":
+                #print getReservedWord(pointer, postlexarray)
+                return pointer, asm, error
+            elif getIdentifier(pointer, postlexarray) == "":
+                error = True
+                syntaxError("BEGIN or Identifier", syntax(postlexarray[pointer]))
+                return pointer, asm, error
+        else:
+            error = True
+            return pointer, asm, error
+
 def syntax(postlex):
     postlexarray = postlex.split()
     #print postlexarray
     pointer = 0
-    while pointer < len(postlexarray):
-        if getReservedWord(pointer, postlexarray) == "":
-            if getSymbol(pointer, postlexarray) == "":
-                if getNumber(pointer, postlexarray) == -1:
-                    if getIdentifier(pointer, postlexarray) == -1:
-                        syntaxError()
-                    else:
-                        print getIdentifier(pointer, postlexarray)
+    if getReservedWord(pointer, postlexarray) == "":
+        if getSymbol(pointer, postlexarray) == "":
+            if getNumber(pointer, postlexarray) == -1:
+                if getIdentifier(pointer, postlexarray) == -1:
+                    syntaxError()
                 else:
-                    print getNumber(pointer, postlexarray)
+                    print getIdentifier(pointer, postlexarray)
             else:
-                print getSymbol(pointer, postlexarray)
+                print getNumber(pointer, postlexarray)
         else:
-            print getReservedWord(pointer, postlexarray)
-        pointer += 1
+            print getSymbol(pointer, postlexarray)
+    else:
+        print getReservedWord(pointer, postlexarray)
+    pointer += 1
     return 0
 
 def bettersyntax(postlex):
     postlexarray = postlex.split()
-    x86 = ""
+    asm = ""
+    #print postlexarray
     pointer = 0
     # if first token not program,error
     if getReservedWord(pointer, postlexarray) != "PROGRAM":
@@ -151,7 +193,7 @@ def bettersyntax(postlex):
 
     pointer = moveToNext(pointer)
     
-    # second idenifier, third ;, fourth begin, fifth end.
+    # second idenifier, third ;
     if getIdentifier(pointer, postlexarray) == -1:
         syntaxError("indentifier", getIndentifier(pointer, postlexarray))
         return
@@ -164,29 +206,31 @@ def bettersyntax(postlex):
 
     pointer = moveToNext(pointer)
 
-    if getReservedWord(pointer, postlexarray) != "BEGIN":
-        syntaxError("BEGIN", getReservedWord(pointer, postlexarray))
-        return
-
-    x86 += """assume  cs:code, ds:code
-code	segment
-start:
+    asm += """.cseg
+.org 0
 """
 
-    pointer = moveToNext(pointer)
+    # fourth var or begin
+    if getReservedWord(pointer, postlexarray) == "VAR":
+        pointer = moveToNext(pointer)
+        pointer, asm, error = assignVariables(pointer, postlexarray, asm)
+        if error:
+            return
 
+    if getReservedWord(pointer, postlexarray) == "BEGIN":
+        asm += "start: "
+        pointer = moveToNext(pointer)
+
+    else:
+        syntaxError("BEGIN or VAR", getReservedWord(pointer, postlexarray))
+        return
+
+    # finally, end
     if getReservedWord(pointer, postlexarray) != "END.":
         syntaxError("END.", getReservedWord(pointer, postlexarray))
         return
 
-    x86 += """code	ends
-end	start"""
-
-    return x86
-
-    # fourth begin or var
-
-    # if var, call var function
+    return asm
 
 def main():
     pasfile = raw_input("File? ")
@@ -195,7 +239,7 @@ def main():
     print "Symboltable:", symboltable
     print ""
     #syntax(postlex)
-    print "x86:"
+    print "ASM:"
     print bettersyntax(postlex)
 
 main()
