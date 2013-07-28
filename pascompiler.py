@@ -47,7 +47,6 @@ def supersplit(words):
 
 def lex(pasfile):
     sourcecode = openfile(pasfile)
-    #print(sourcecode)
     postlex = ""
     symcount = 0
     combo = False
@@ -123,9 +122,8 @@ def syntaxError(expected, got):
 
 def assignVariables(pointer, postlexarray, asm):
     error = False
-    registerCount = 16
+    registerCount = 17
     moreVars = True
-    asm += ".def temp = R15\n"
     
     while moreVars:
         if getIdentifier(pointer, postlexarray) == -1:
@@ -138,7 +136,6 @@ def assignVariables(pointer, postlexarray, asm):
             asm += str(registerCount)
             registerCount += 1
             asm += "\n"
-            #print asm
             pointer = moveToNext(pointer)
 
         if getSymbol(pointer, postlexarray) == ",":
@@ -146,16 +143,14 @@ def assignVariables(pointer, postlexarray, asm):
         elif getSymbol(pointer, postlexarray) == ":":
             pointer = moveToNext(pointer)
             if not (getReservedWord(pointer, postlexarray) == "INTEGER" or getReservedWord(pointer, postlexarray) == "BOOLEAN"):
-                #print getReservedWord(pointer, postlexarray)
                 error = True
                 syntaxError("INTEGER or BOOLEAN", syntax(postlexarray[pointer]))
                 return pointer, asm, error
+            
             pointer = moveToNext(pointer)
             pointer = moveToNext(pointer)
-            #print "r", getReservedWord(pointer, postlexarray), pointer
 
             if getReservedWord(pointer, postlexarray) == "BEGIN":
-                #print getReservedWord(pointer, postlexarray)
                 return pointer, asm, error
             elif getIdentifier(pointer, postlexarray) == "":
                 error = True
@@ -168,10 +163,9 @@ def assignVariables(pointer, postlexarray, asm):
 def parseAssignment(pointer, postlexarray, asm):
     error = False
     
-    # get variable
+    # get variable for assigning
     var = getIdentifier(pointer, postlexarray)
     pointer = moveToNext(pointer)
-    #print "MAIN VAR", var
 
     # make sure it's getting assigned
     if getSymbol(pointer, postlexarray) != ":=":
@@ -183,6 +177,9 @@ def parseAssignment(pointer, postlexarray, asm):
     # see if a number
     try:
         val = str(int(postlexarray[pointer]))
+        asm += "LDI temp, "
+        asm += val
+        asm += "\n"
     except ValueError:
     # or a variable
         if getIdentifier(pointer, postlexarray) == -1:
@@ -190,39 +187,28 @@ def parseAssignment(pointer, postlexarray, asm):
             syntaxError("Identifier or integer", syntax(postlexarray[pointer]))
             return pointer, asm, error
         val = getIdentifier(pointer, postlexarray)
-    pointer += 1
-
-    asm += "LDI "
-    asm += "temp"
-    asm += ", "
-    asm += val
-    asm += "\n"
+        asm += "MOV temp, "
+        asm += val
+        asm += "\n"
+    pointer = moveToNext(pointer)
     
     more = True
     
     while more:
+        # get the next symbol
         if getSymbol(pointer, postlexarray) == ";":
-            asm += "LDI "
+            asm += "MOV "
             asm += var
-            asm += ", "
-            asm += "temp"
-            asm += "\n"
-            #print asm
-            pointer += 1
+            asm += ", temp\n"
+            pointer = moveToNext(pointer)
             return pointer, asm, error
         elif getSymbol(pointer, postlexarray) == "+":
-            asm += "ADD "
-            asm += "temp"
-            asm += ", "
+            asm += "ADD temp, "
             #print asm
-            pointer += 1
+            pointer = moveToNext(pointer)
         elif getSymbol(pointer, postlexarray) == "-":
-            asm += "SUB "
-            asm += "temp"
-            asm += ", "
-            
-            #print asm
-            pointer += 1
+            asm += "SUB temp, "
+            pointer = moveToNext(pointer)
         else:
             error = True
             syntaxError("+, - or ;", syntax(postlexarray[pointer]))
@@ -242,8 +228,7 @@ def parseAssignment(pointer, postlexarray, asm):
             val = getIdentifier(pointer, postlexarray)
             asm += val
             asm += "\n"
-        pointer += 1
-        #print val
+        pointer = moveToNext(pointer)
 
 def syntax(postlex):
     postlexarray = postlex.split()
@@ -266,59 +251,92 @@ def syntax(postlex):
 def bettersyntax(postlex):
     postlexarray = postlex.split()
     asm = ""
-    #print postlexarray
     pointer = 0
+    
     # if first token not program,error
     if getReservedWord(pointer, postlexarray) != "PROGRAM":
         syntaxError("PROGRAM", syntax(postlexarray[pointer]))
-        return
+        return ""
 
     pointer = moveToNext(pointer)
     
     # second idenifier, third ;
     if getIdentifier(pointer, postlexarray) == -1:
         syntaxError("indentifier", syntax(postlexarray[pointer]))
-        return
+        return ""
 
     pointer = moveToNext(pointer)
 
     if getSymbol(pointer, postlexarray) != ';':
         syntaxError(";", syntax(postlexarray[pointer]))
-        return
+        return ""
 
     pointer = moveToNext(pointer)
 
-    asm += ".cseg\n.org 0\n\n"
+    asm += ".cseg\n.org 0\n\n.def temp = R16\n"
 
-    # fourth var or begin
+    # check for variables
     if getReservedWord(pointer, postlexarray) == "VAR":
         pointer = moveToNext(pointer)
         pointer, asm, error = assignVariables(pointer, postlexarray, asm)
         if error:
-            return
+            return ""
+
+    asm += "\nconfig:\nLDI temp, 0b11111111\nOUT DDRD, temp\n"
 
     if getReservedWord(pointer, postlexarray) == "BEGIN":
         asm += "\nstart:\n"
         pointer = moveToNext(pointer)
     else:
         syntaxError("BEGIN or VAR", syntax(postlexarray[pointer]))
-        return
+        return ""
 
-    #print "thus far"
+    # while not at the end of postlex
+    while pointer < len(postlexarray)-1:
+        # assign variables
+        if getIdentifier(pointer, postlexarray) != -1:
+            pointer, asm, error = parseAssignment(pointer, postlexarray, asm)
+            if error:
+                return ""
+        elif getReservedWord(pointer, postlexarray) == "WRITELN":
+            pointer = moveToNext(pointer)
+            if getSymbol(pointer, postlexarray) == "(":
+                pointer = moveToNext(pointer)
 
-    # assign variables
-    while getIdentifier(pointer, postlexarray) != -1:
-        pointer, asm, error = parseAssignment(pointer, postlexarray, asm)
-        #print "loop"
-        if error:
-            return
-
-    #print "no errors"
+                try:
+                    val = str(int(postlexarray[pointer]))
+                except ValueError:
+                    if getIdentifier(pointer, postlexarray) == -1:
+                        error = True
+                        syntaxError("Identifier or integer", syntax(postlexarray[pointer]))
+                        return pointer, asm, error
+                    val = getIdentifier(pointer, postlexarray)
+                    
+                pointer = moveToNext(pointer)
+                if getSymbol(pointer, postlexarray) == ")":
+                    pointer = moveToNext(pointer)
+                    if getSymbol(pointer, postlexarray) == ";":
+                        pointer = moveToNext(pointer)
+                        asm += "OUT PORTD, "
+                        asm += val
+                        asm += "\n"
+                    else:
+                        syntaxError(";", syntax(postlexarray[pointer]))
+                        return ""
+                else:
+                    syntaxError(")", syntax(postlexarray[pointer]))
+                    return ""
+            else:
+                syntaxError("(", syntax(postlexarray[pointer]))
+                return ""
+        else:
+            syntaxError("Identifier or WRITELN", syntax(postlexarray[pointer]))
+            return ""
 
     # finally, end
     if getReservedWord(pointer, postlexarray) != "END.":
         syntaxError("END.", syntax(postlexarray[pointer]))
-        return
+        return ""
 
     return asm
 
@@ -328,8 +346,7 @@ def main():
         postlex = lex(pasfile)
         print "Postlex:", postlex
         print "Symboltable:", symboltable
-        print ""
-        print "ASM:"
+        print "\nASM:"
         print bettersyntax(postlex)
 
 main()

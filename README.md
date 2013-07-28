@@ -17,6 +17,7 @@ Working:
 - basic.pas
 - vars.pas
 - asnvars.pas
+- writeln.pas
 
 TBA:
 
