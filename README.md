@@ -16,6 +16,7 @@ Working:
 
 - basic.pas
 - vars.pas
+- asnvars.pas
 
 TBA:
 
