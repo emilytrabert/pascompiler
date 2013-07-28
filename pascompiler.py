@@ -171,7 +171,7 @@ def parseAssignment(pointer, postlexarray, asm):
     # get variable
     var = getIdentifier(pointer, postlexarray)
     pointer = moveToNext(pointer)
-    print "MAIN VAR", var
+    #print "MAIN VAR", var
 
     # make sure it's getting assigned
     if getSymbol(pointer, postlexarray) != ":=":
@@ -207,21 +207,21 @@ def parseAssignment(pointer, postlexarray, asm):
             asm += ", "
             asm += "temp"
             asm += "\n"
-            print asm
+            #print asm
             pointer += 1
             return pointer, asm, error
         elif getSymbol(pointer, postlexarray) == "+":
             asm += "ADD "
             asm += "temp"
             asm += ", "
-            print asm
+            #print asm
             pointer += 1
         elif getSymbol(pointer, postlexarray) == "-":
             asm += "SUB "
             asm += "temp"
             asm += ", "
             
-            print asm
+            #print asm
             pointer += 1
         else:
             error = True
@@ -243,7 +243,7 @@ def parseAssignment(pointer, postlexarray, asm):
             asm += val
             asm += "\n"
         pointer += 1
-        print val
+        #print val
 
 def syntax(postlex):
     postlexarray = postlex.split()
@@ -304,16 +304,16 @@ def bettersyntax(postlex):
         syntaxError("BEGIN or VAR", syntax(postlexarray[pointer]))
         return
 
-    print "thus far"
+    #print "thus far"
 
     # assign variables
     while getIdentifier(pointer, postlexarray) != -1:
         pointer, asm, error = parseAssignment(pointer, postlexarray, asm)
-        print "loop"
+        #print "loop"
         if error:
             return
 
-    print "no errors"
+    #print "no errors"
 
     # finally, end
     if getReservedWord(pointer, postlexarray) != "END.":
